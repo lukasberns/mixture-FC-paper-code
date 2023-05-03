@@ -561,6 +561,61 @@ dev.off()
 
 
 
+# Plot upper bound on gamma
+
+setwd(sprintf("/Users/lukasb/Documents/Uni/v-Research/p-theta/20220528-mixturepaper-expfamily_rsrc/20230320-02-generic"))
+
+customPDF = function(file) {
+  pdf(file=file, 5, 5, family="serif")
+  par(lwd=1.5, mar=c(5.1, 4.1+0.5, 4.1, 2.1))
+}
+
+customPDF("gamma.pdf")
+Dchi2max = 35
+y = seq(0,40,len=400)
+ymax = pmax(y,Dchi2max)
+k = 1
+P = 1.-pchisq(y,k)
+Pmax = 1.-pchisq(ymax,k)
+
+C = 1
+epsilon = 1
+A = 1/(C + exp(0.5*(y - epsilon)))
+B = 1/(C+1) - A
+S = 10
+gamma = (A + B*Pmax/P - 1/S*P) / (1 - P)
+plot(y, A/(1-P), 'l', log='y', col=2, ylab=expression('Upper bound on '*gamma),
+ylim=c(0.5e-4,3*S), xaxs='i', yaxs='i', yaxt="n") # , xaxt="n")
+lines(y, B*Pmax/P/(1-P), col=3)
+lines(y, gamma, col=1)
+abline(h=1, lty=3)
+axis(2, at=c(1,1e-2,1e-4), labels=c(expression(1), expression(10^-2), expression(10^-4)), las=1)
+axis(1, at=c(epsilon, Dchi2max), labels=c(expression(epsilon), expression(Delta*chi[max]^2)), col.axis=4, col=4)
+abline(v=c(epsilon,Dchi2max), lty=2, col=4)
+legend("top", c("Total", expression(y <= Y(x)*" < "*Delta*chi[max]^2), expression(Y(x) >= Delta*chi[max]^2)), lty=1, col=1:3, bty="n")
+box()
+dev.off()
+
+
+# Plot relative error on estimated CDF
+
+customPDF("variance.pdf")
+nexp = 10000
+varCDFconv = 1/nexp*P*(1-P)
+varCDFmix  = varCDFconv*gamma
+
+plot(y, sqrt(varCDFconv)/P, 'l', log='y', col=2, ylab=expression('Relative error on estimated CDF'), xaxs='i', yaxs='i', yaxt="n")
+lines(y, sqrt(varCDFmix)/P, col=3)
+axis(2, at=c(1e-2,1e-1,1,1e1,1e2), labels=c(expression(10^-2), expression(10^-1), 1, 10, 100), las=1)
+axis(1, at=c(epsilon, Dchi2max), labels=c(expression(epsilon), expression(Delta*chi[max]^2)), col.axis=4, col=4)
+abline(h=0.1, lty=3)
+abline(v=c(epsilon,Dchi2max), lty=2, col=4)
+legend("top", c("Conventional FC", "Mixture FC (upper bound)"), lty=1, col=2:3, bty="n")
+box()
+dev.off()
+
+
+
 # Plot expected number of events for different values of dCP #
 
 customPDF("lambda.pdf")
