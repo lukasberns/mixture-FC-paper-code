@@ -315,9 +315,6 @@ for (interpolateMixt in c(TRUE,FALSE)) {
 
 # toy distribution
 require(plotrix) # for weighted histogram
-# require(Hmisc) # for binconf
-# require(DescTools) # for BinomCI
-# require(fastR2) # for wilson.ci
 
 Dchi2.hist.bins = seq(0.,32.,len=100)
 Dchi2.hist.bins.centers = (Dchi2.hist.bins[-1]+Dchi2.hist.bins[-length(Dchi2.hist.bins)])/2.
@@ -443,13 +440,9 @@ dPmixt.upper = dPconv * sqrt(gamma.plot)
 
 customPDF(sprintf("relerr-std%d-mixture%d.pdf", itrue, ifit.trgt))
 plot(Dchi2.hist.bins.centers, Dchi2.hist.bins.centers, 'n', col=1, ylim=c(1e-2,0.2), log='y', ylab="Estimated relative error on CDF estimate", xlab=expression(Delta*chi[t]^2), xaxs='i', xlim=c(0,25))
-# lines(Dchi2.hist.bins.centers, 1 / sqrt(Dchi2.hist.std), 'l', col=1, lty=1)
 lines(Dchi2.hist.bins.centers, dPconv, 'l', col=1, lty=1)
 lines(Dchi2.hist.bins.centers, dPmixt.upper, 'l', col=4, lty=2)
-# lines(Dchi2.hist.bins.centers, dPmixt.upper/sqrt(Ntrue), 'l', col=3, lty=3) # as a check for why the error is much smaller than the upper bound
 lines(Dchi2.hist.bins.centers, Dchi2.hist.mixt.se / Dchi2.hist.mixt.nonneg, 'l', col=2)
-# 
-# legend('bottomright', c('Conventional FC (std.err.)','Binomial','Mixture FC (bootstrap)',expression('Upper bound on '*gamma)),lty=c(1,2,1,2),col=c(1,1,2,4),bty="n")
 legend('bottomright', c('Conventional FC','Mixture FC (bootstrap)',expression('Upper bound on '*gamma)),lty=c(1,1,2),col=c(1,2,4),bty="n")
 dev.off()
 
@@ -548,7 +541,6 @@ plot(
   ylab='Pseudo-experiment weight',
   xlim=range(Dchi2.plot)
 )
-# abline(h=1, lty=3)
 points(
   Dchi2.toy.true[itrue,],
   1 + 0*Dchi2.toy.true[itrue,],
