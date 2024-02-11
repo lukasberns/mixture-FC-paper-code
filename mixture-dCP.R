@@ -555,7 +555,7 @@ dev.off()
 
 # Plot upper bound on gamma
 
-setwd(sprintf("/Users/lukasb/Documents/Uni/v-Research/p-theta/20220528-mixturepaper-expfamily_rsrc/20230320-02-generic"))
+setwd(sprintf("../20220528-mixturepaper-expfamily_rsrc/20230320-02-generic"))
 
 customPDF = function(file) {
   pdf(file=file, 5, 5, family="serif")
