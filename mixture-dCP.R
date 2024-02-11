@@ -360,7 +360,7 @@ histWithoutErrorBars = function(bins, n, col=1, lty=1) {
   # bins will have one more entry than n
   lines(bins, c(n,1e-11), type='s', col=col, lty=lty)
 }
-histWithBinomErrorBars = function(binCenters, n, col=1, showZeros=FALSE) {
+histWithBinomErrorBars = function(binCenters, n, col=1, showZeros=FALSE, pch=20) {
   # ci = binconf(n, sum(n), alpha=1-pchisq(1^2,1), "wilson")
   # ci = BinomCI(n, sum(n), conf.level = pchisq(1^2,1), method = "wilson")
   ci = sapply(n, function(x) { binom.test(x, sum(n), pchisq(1^2,1))$conf.int*sum(n) }) # clopper-pearson
@@ -376,7 +376,7 @@ histWithBinomErrorBars = function(binCenters, n, col=1, showZeros=FALSE) {
   )
   hollowCircle = 1
   solidCircle = 20
-  points(binCenters, n, col=col, pch=solidCircle)
+  points(binCenters, n, col=col, pch=pch)
 }
 histWithErrorBands = function(bins, w, w2, col=1, border=1) {
   # bins will have one more entry than w and w2
@@ -399,7 +399,7 @@ for (withMixture in c(FALSE, TRUE)) {
   }
   
   histWithBinomErrorBars(Dchi2.hist.bins.centers, Dchi2.hist.std, col=1, showZeros=TRUE)
-  histWithBinomErrorBars(Dchi2.hist.bins.centers, Dchi2.hist.mixt.unweighted, col=4, showZeros=TRUE)
+  histWithBinomErrorBars(Dchi2.hist.bins.centers, Dchi2.hist.mixt.unweighted, col=4, showZeros=TRUE, pch=18)
   
   # histWithoutErrorBars(Dchi2.hist.bins, Dchi2.hist.mixt, col=2)
   if (withMixture) {
@@ -408,17 +408,21 @@ for (withMixture in c(FALSE, TRUE)) {
   # lines(Dchi2.hist.bins.centers, Dchi2.hist.mixt+Dchi2.hist.mixt.se, type='s', col=5)
   # lines(Dchi2.hist.bins.centers, Dchi2.hist.mixt-Dchi2.hist.mixt.se, type='s', col=5)
   
-  histWithoutErrorBars(Dchi2.hist.bins, Dchi2.hist.mixt.nonneg * (C.plot + exp(+0.5*Dchi2.hist.bins.centers-0.5*epsilon.plot)), col=3)
+  histWithoutErrorBars(Dchi2.hist.bins, Dchi2.hist.mixt.nonneg * (C.plot + exp(+0.5*Dchi2.hist.bins.centers-0.5*epsilon.plot)), col=3, lty=2)
   # histWithoutErrorBars(Dchi2.hist.bins, Dchi2.hist.std.nonneg, col=1)
   # histWithoutErrorBars(Dchi2.hist.bins, Dchi2.hist.mixt.unweighted.nonneg, col=4)
   
   leg.items = c('Conventional FC','Weighted mixture','Unweighted mixture','Theoretical lower limit')
   leg.col = c(1,2,4,3)
+  leg.pch = c(20,NA,18,NA)
+  leg.lty = c(1,1,1,2)
   if (!withMixture) {
     leg.items = leg.items[-2]
     leg.col = leg.col[-2]
   }
-  legend('bottomleft', leg.items,lty=1,col=leg.col,bg="white")
+  # legend('bottomleft', leg.items,lty=leg.lty,pch=leg.pch,col=leg.col,bg="white")
+  legend('bottomleft', leg.items,lty=leg.lty,col=leg.col,bg="white")
+  legend('bottomleft', c("","","",""),pch=leg.pch,col=leg.col,bty='n',inset=c(0.04,0.))
   dev.off()
 }
 
@@ -440,10 +444,10 @@ dPmixt.upper = dPconv * sqrt(gamma.plot)
 
 customPDF(sprintf("relerr-std%d-mixture%d.pdf", itrue, ifit.trgt))
 plot(Dchi2.hist.bins.centers, Dchi2.hist.bins.centers, 'n', col=1, ylim=c(1e-2,0.2), log='y', ylab="Estimated relative error on CDF estimate", xlab=expression(Delta*chi[t]^2), xaxs='i', xlim=c(0,25))
-lines(Dchi2.hist.bins.centers, dPconv, 'l', col=1, lty=1)
-lines(Dchi2.hist.bins.centers, dPmixt.upper, 'l', col=4, lty=2)
+lines(Dchi2.hist.bins.centers, dPconv, 'l', col=1, lty=5)
+lines(Dchi2.hist.bins.centers, dPmixt.upper, 'l', col=4, lty=3)
 lines(Dchi2.hist.bins.centers, Dchi2.hist.mixt.se / Dchi2.hist.mixt.nonneg, 'l', col=2)
-legend('bottomright', c('Conventional FC','Mixture FC (bootstrap)',expression('Upper bound on '*gamma)),lty=c(1,1,2),col=c(1,2,4),bty="n")
+legend('bottomright', c('Conventional FC','Mixture FC (bootstrap)',expression('Upper bound on '*gamma)),lty=c(5,1,3),col=c(1,2,4),bty="n")
 dev.off()
 
 
@@ -461,6 +465,7 @@ for (withMixture in c(FALSE, TRUE)) {
   df.pts.name =  c(expression("Sampling "*theta*" = "*-pi*"/2 (target)"), expression("Sampling "*theta*" = 0"), expression("Sampling "*theta*" = "*+pi*"/2"), bquote("Mixture of "*.(sprintf("%s", Ntrue))*" "*theta*"-values"))
   df.pts = data.frame(
     col = c(1,2,3,4),
+    pch = c(20,15,17,18),
     itrue = c( Ntrue%/%4, Ntrue %/% 2, 3*Ntrue%/%4, -1)
   )
   
@@ -486,9 +491,9 @@ for (withMixture in c(FALSE, TRUE)) {
 
     # lines(Dchi2.hist.bins.centers, Dchi2.hist.mixt.unweighted.nonneg , type='s', col=df.pts$col[ipt])
     # histWithoutErrorBars(Dchi2.hist.bins, Dchi2.hist.mixt.unweighted.nonneg, col=df.pts$col[ipt])
-    histWithBinomErrorBars(Dchi2.hist.bins.centers, Dchi2.hist.mixt.unweighted, col=df.pts$col[ipt])
+    histWithBinomErrorBars(Dchi2.hist.bins.centers, Dchi2.hist.mixt.unweighted, col=df.pts$col[ipt], pch=df.pts$pch[ipt])
   }
-  legend('topright', legend=df.pts.name, lty=1, col=df.pts$col, bg="white")
+  legend('topright', legend=df.pts.name, lty=1, col=df.pts$col, pch=df.pts$pch, box.col="white", inset=c(0.005,0.005))
   dev.off()
 }
 
@@ -541,21 +546,17 @@ plot(
   ylab='Pseudo-experiment weight',
   xlim=range(Dchi2.plot)
 )
-points(
-  Dchi2.toy.true[itrue,],
-  1 + 0*Dchi2.toy.true[itrue,],
-  pch='.'
-)
+abline(h=1, lty=4)
 lines(Dchi2.plot, wL.plot, lty=2, col=4)
 lines(Dchi2.plot, wU.plot, lty=2, col=4)
-legend('bottomleft', c('Conventional Feldman-Cousins','Mixture Feldman-Cousins','Theoretical bounds'), col=c(1,2,4), lty=c(1,1,2), bty='n')
+legend('bottomleft', c('Conventional Feldman-Cousins','Mixture Feldman-Cousins','Theoretical bounds'), col=c(1,2,4), lty=c(4,NA,2), pch=c(NA,20,NA), pt.cex=0.5, bty='n', inset=c(0.05,0))
 dev.off()
 
 
 
 # Plot upper bound on gamma
 
-setwd(sprintf("../20220528-mixturepaper-expfamily_rsrc/20230320-02-generic"))
+setwd(sprintf("../20230320-02-generic"))
 
 customPDF = function(file) {
   pdf(file=file, 5, 5, family="serif")
@@ -576,15 +577,15 @@ A = 1/(C + exp(0.5*(y - epsilon)))
 B = 1/(C+1) - A
 S = 10
 gamma = (A + B*Pmax/P - 1/S*P) / (1 - P)
-plot(y, A/(1-P), 'l', log='y', col=2, ylab=expression('Upper bound on '*gamma),
+plot(y, A/(1-P), 'l', log='y', col=2, lty=2, ylab=expression('Upper bound on '*gamma),
 ylim=c(0.5e-4,3*S), xaxs='i', yaxs='i', yaxt="n") # , xaxt="n")
-lines(y, B*Pmax/P/(1-P), col=3)
+lines(y, B*Pmax/P/(1-P), col=3, lty=4)
 lines(y, gamma, col=1)
 abline(h=1, lty=3)
 axis(2, at=c(1,1e-2,1e-4), labels=c(expression(1), expression(10^-2), expression(10^-4)), las=1)
 axis(1, at=c(epsilon, Dchi2max), labels=c(expression(epsilon), expression(Delta*chi[max]^2)), col.axis=4, col=4)
 abline(v=c(epsilon,Dchi2max), lty=2, col=4)
-legend("top", c("Total", expression(y <= Y(x)*" < "*Delta*chi[max]^2), expression(Y(x) >= Delta*chi[max]^2)), lty=1, col=1:3, bty="n")
+legend("top", c("Total", expression(y <= Y(x)*" < "*Delta*chi[max]^2), expression(Y(x) >= Delta*chi[max]^2)), lty=c(1,2,4), col=1:3, bty="n")
 box()
 dev.off()
 
@@ -596,13 +597,13 @@ nexp = 10000
 varCDFconv = 1/nexp*P*(1-P)
 varCDFmix  = varCDFconv*gamma
 
-plot(y, sqrt(varCDFconv)/P, 'l', log='y', col=2, ylab=expression('Relative error on estimated CDF'), xaxs='i', yaxs='i', yaxt="n")
-lines(y, sqrt(varCDFmix)/P, col=3)
+plot(y, sqrt(varCDFconv)/P, 'l', log='y', col=1, lty=4, ylab=expression('Relative error on estimated CDF'), xaxs='i', yaxs='i', yaxt="n")
+lines(y, sqrt(varCDFmix)/P, col=2)
 axis(2, at=c(1e-2,1e-1,1,1e1,1e2), labels=c(expression(10^-2), expression(10^-1), 1, 10, 100), las=1)
 axis(1, at=c(epsilon, Dchi2max), labels=c(expression(epsilon), expression(Delta*chi[max]^2)), col.axis=4, col=4)
 abline(h=0.1, lty=3)
 abline(v=c(epsilon,Dchi2max), lty=2, col=4)
-legend("top", c("Conventional FC", "Mixture FC (upper bound)"), lty=1, col=2:3, bty="n")
+legend("top", c("Conventional FC", "Mixture FC (upper bound)"), lty=c(4,1), col=1:2, bty="n")
 box()
 dev.off()
 
