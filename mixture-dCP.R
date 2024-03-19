@@ -327,21 +327,36 @@ theta.fit[ifit.trgt]
 C.plot = 1.
 
 # more toys as ground truth for conventional method
-# this block takes about 2 min to compute
+# this block takes a few min to compute (see gt.Ntoys.per.true below)
 gt.Ntrue = 1
 gt.theta.uniq.true = theta.uniq.true[itrue]
-gt.Ntoys.per.true = 1000000
+gt.Ntoys.per.true = 10000000 # 1M = 2 min, 800 MB. 4M = 8 min, 3.2 GB. 10M
 gt.Ntoys = gt.Ntrue*gt.Ntoys.per.true
 gt.theta.true = array(gt.theta.uniq.true, gt.Ntoys) # [Ntoys] but can reshape to [Ntrue,Ntoys.per.true]
 # observations
 gt.lambda.true = get.lambda(gt.theta.true)
 gt.nu.toy = array(rpois(Nnu*gt.Ntoys, gt.lambda.true), c(Nnu,gt.Ntoys))
-gt.chi2.fit.toy = get.chi2(gt.nu.toy, lambda.fit) # [Nfit, gt.Ntoys]
-# sum(is.na(gt.chi2.fit.toy))
-gt.chi2.toy.min = apply(gt.chi2.fit.toy, 2, function(chi2.fit.onetoy) {
-  min(chi2.fit.onetoy)
-}) # [gt.Ntoys]
-remove(gt.chi2.fit.toy) # this object is 800 MB
+
+# since we will be limited by memory, we will process in batches
+gt.Ntoy.batches = c(seq(1, gt.Ntoys.per.true, 1e5), gt.Ntoys.per.true+1)
+gt.chi2.toy.min = sapply(seq(gt.Ntoy.batches[-1]), function(ibatch) {
+  print(sprintf("%3d / %3d", ibatch, length(gt.Ntoy.batches)-1))
+  gt.itoy = seq(gt.Ntoy.batches[ibatch], gt.Ntoy.batches[ibatch+1]-1)
+  gt.chi2.fit.toy = get.chi2(gt.nu.toy[,gt.itoy], lambda.fit) # [Nfit, gt.Ntoys]
+  gt.chi2.toy.min.here = apply(gt.chi2.fit.toy, 2, function(chi2.fit.onetoy) {
+    min(chi2.fit.onetoy)
+  }) # [gt.Ntoys]
+  remove(gt.chi2.fit.toy) # this object is 800 MB for 1M toys
+  return(gt.chi2.toy.min.here)
+}) # [Ntoys per batch, Nbatch]
+gt.chi2.toy.min = c(gt.chi2.toy.min) # squash, this orders them as c(Ntoys per batch1, Ntoys per batch2, ...)
+# gt.chi2.fit.toy = get.chi2(gt.nu.toy, lambda.fit) # [Nfit, gt.Ntoys]
+# # sum(is.na(gt.chi2.fit.toy))
+# gt.chi2.toy.min = apply(gt.chi2.fit.toy, 2, function(chi2.fit.onetoy) {
+#   min(chi2.fit.onetoy)
+# }) # [gt.Ntoys]
+# remove(gt.chi2.fit.toy) # this object is 800 MB
+
 gt.chi2.toy.true = get.chi2.pertoy(gt.nu.toy, gt.lambda.true) # [gt.Ntoy]
 gt.Dchi2.toy.true = gt.chi2.toy.true - gt.chi2.toy.min # [gt.Ntoys]
 # now reformat
@@ -392,20 +407,21 @@ histWithoutErrorBars = function(bins, n, col=1, lty=1) {
   # bins will have one more entry than n
   lines(bins, c(n,1e-11), type='s', col=col, lty=lty)
 }
-histWithBinomErrorBars = function(binCenters, n, col=1, showZeros=FALSE, pch=20, scale=1., lwd=2) {
+histWithBinomErrorBars = function(binCenters, n, col=1, showZeros=FALSE, pch=20, scale=1., lwd=2, lend="round") {
   # ci = binconf(n, sum(n), alpha=1-pchisq(1^2,1), "wilson")
   # ci = BinomCI(n, sum(n), conf.level = pchisq(1^2,1), method = "wilson")
-  ci = scale*sapply(n, function(x) { binom.test(x, sum(n), pchisq(1^2,1))$conf.int*sum(n) }) # clopper-pearson
+  ci = sapply(n, function(x) { binom.test(x, sum(n), conf.level=pchisq(1^2,1))$conf.int*sum(n) }) # clopper-pearson
   arrows(
     x0=binCenters[showZeros | n>0],
-    y0=pmax(ci[1,],1e-11)[showZeros | n>0],
+    y0=pmax(scale*ci[1,],1e-11)[showZeros | n>0],
     x1=binCenters[showZeros | n>0],
-    y1=ci[2,][showZeros | n>0],
+    y1=(scale*ci[2,])[showZeros | n>0],
     length=0.,
     code=3,
     angle=90,
     col=col,
-    lwd=lwd
+    lwd=lwd,
+    lend=lend
   )
   hollowCircle = 1
   solidCircle = 20
@@ -432,7 +448,7 @@ for (withMixture in c(FALSE, TRUE)) {
   }
   
   histWithBinomErrorBars(Dchi2.hist.bins.centers, Dchi2.hist.std, col=1, showZeros=TRUE)
-  histWithBinomErrorBars(Dchi2.hist.bins.centers, gt.Dchi2.hist.std, col=1, showZeros=TRUE, lwd=4, pch=NA, scale=Ntoys.per.true/gt.Ntoys)
+  histWithBinomErrorBars(Dchi2.hist.bins.centers, gt.Dchi2.hist.std, col=1, showZeros=TRUE, lwd=4, lend="butt", pch=NA, scale=Ntoys.per.true/gt.Ntoys)
   histWithBinomErrorBars(Dchi2.hist.bins.centers, Dchi2.hist.mixt.unweighted, col=4, showZeros=TRUE, pch=18)
   
   # histWithoutErrorBars(Dchi2.hist.bins, Dchi2.hist.mixt, col=2)
@@ -463,6 +479,22 @@ for (withMixture in c(FALSE, TRUE)) {
   legend('bottomleft', rep("",length(leg.items)),pch=leg.pch,col=leg.col,bty='n',inset=c(0.04,0.))
   dev.off()
 }
+
+# scaled so we can see the error bars
+ref.hist.a1 = Dchi2.hist.mixt.nonneg
+ref.hist.a2 = gt.Dchi2.hist.std * (Ntoys.per.true/gt.Ntoys)
+ref.hist.w1 = 1./Dchi2.hist.mixt.w2.nonneg
+ref.hist.w2 = 1./(gt.Dchi2.hist.std+1.) / (Ntoys.per.true/gt.Ntoys)**2
+ref.hist = (ref.hist.a1*ref.hist.w1 + ref.hist.a2*ref.hist.w2) / (ref.hist.w1 + ref.hist.w2)
+
+plot( Dchi2.hist.bins, pmax(Dchi2.hist.bins,1e-11), type='n', col=2, xaxs='i', ylim=c(0., 2.), ylab='Number of pseudo-experiments / mixture', xlab=expression(Delta*chi[t]^2), xlim=c(0,25))
+for (iprob in 1:Nprob) {
+  abline(v=Dchi2c.mixt[iprob,ifit.trgt], col='gray', lty=2)
+}
+histWithBinomErrorBars(Dchi2.hist.bins.centers, Dchi2.hist.std, col=1, showZeros=TRUE, scale=1./ref.hist)
+histWithBinomErrorBars(Dchi2.hist.bins.centers, gt.Dchi2.hist.std, col=1, showZeros=TRUE, lwd=4, lend="butt", pch=NA, scale=Ntoys.per.true/gt.Ntoys/ref.hist)
+histWithErrorBands(Dchi2.hist.bins, Dchi2.hist.mixt.nonneg/ref.hist, Dchi2.hist.mixt.w2.nonneg/ref.hist/ref.hist, col=rgb(1,0,0,0.5), border=2)
+
 
 
 # plot of estimated errors on critical values
