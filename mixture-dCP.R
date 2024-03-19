@@ -10,7 +10,7 @@ theta.true = array(theta.uniq.true, Ntoys) # [Ntoys] but can reshape to [Ntrue,N
 # needs adjustment
 epsilon.plot = 0.3
 
-setwd(sprintf("20220528-mixturepaper-expfamily_rsrc/20230311-01-T2K-%dtrue-%dtoys", Ntrue, Ntoys.per.true))
+setwd(sprintf("20220528-mixturepaper-expfamily_rsrc/20240319-01-T2K-%dtrue-%dtoys", Ntrue, Ntoys.per.true))
 
 get.lambda = function(theta) {
   B = 10
@@ -326,12 +326,44 @@ theta.uniq.true[itrue]
 theta.fit[ifit.trgt]
 C.plot = 1.
 
+# more toys as ground truth for conventional method
+# this block takes about 2 min to compute
+gt.Ntrue = 1
+gt.theta.uniq.true = theta.uniq.true[itrue]
+gt.Ntoys.per.true = 1000000
+gt.Ntoys = gt.Ntrue*gt.Ntoys.per.true
+gt.theta.true = array(gt.theta.uniq.true, gt.Ntoys) # [Ntoys] but can reshape to [Ntrue,Ntoys.per.true]
+# observations
+gt.lambda.true = get.lambda(gt.theta.true)
+gt.nu.toy = array(rpois(Nnu*gt.Ntoys, gt.lambda.true), c(Nnu,gt.Ntoys))
+gt.chi2.fit.toy = get.chi2(gt.nu.toy, lambda.fit) # [Nfit, gt.Ntoys]
+# sum(is.na(gt.chi2.fit.toy))
+gt.chi2.toy.min = apply(gt.chi2.fit.toy, 2, function(chi2.fit.onetoy) {
+  min(chi2.fit.onetoy)
+}) # [gt.Ntoys]
+remove(gt.chi2.fit.toy) # this object is 800 MB
+gt.chi2.toy.true = get.chi2.pertoy(gt.nu.toy, gt.lambda.true) # [gt.Ntoy]
+gt.Dchi2.toy.true = gt.chi2.toy.true - gt.chi2.toy.min # [gt.Ntoys]
+# now reformat
+# sanity check:
+assertthat::are_equal(array(gt.theta.true,c(gt.Ntrue,gt.Ntoys.per.true))[,1], gt.theta.uniq.true)
+# then
+gt.Dchi2.toy.true = array(gt.Dchi2.toy.true,c(gt.Ntrue,gt.Ntoys.per.true))
+
+
 Dchi2.hist.std = weighted.hist(
   pmax(pmin(c(Dchi2.toy.true[itrue,]),max(Dchi2.hist.bins)), 0.),
   breaks=Dchi2.hist.bins,
   plot=FALSE
 )$counts
 Dchi2.hist.std.nonneg = ifelse(Dchi2.hist.std > 0, Dchi2.hist.std, 1e-11)
+
+gt.Dchi2.hist.std = weighted.hist(
+  pmax(pmin(c(gt.Dchi2.toy.true[1,]),max(Dchi2.hist.bins)), 0.),
+  breaks=Dchi2.hist.bins,
+  plot=FALSE
+)$counts
+gt.Dchi2.hist.std.nonneg = ifelse(gt.Dchi2.hist.std > 0, gt.Dchi2.hist.std, 1e-11)
 
 Dchi2.hist.mixt.unweighted = weighted.hist(
   pmax(pmin(c(Dchi2.fit.toy[ifit.trgt,]),max(Dchi2.hist.bins)), 0.),
@@ -360,10 +392,10 @@ histWithoutErrorBars = function(bins, n, col=1, lty=1) {
   # bins will have one more entry than n
   lines(bins, c(n,1e-11), type='s', col=col, lty=lty)
 }
-histWithBinomErrorBars = function(binCenters, n, col=1, showZeros=FALSE, pch=20) {
+histWithBinomErrorBars = function(binCenters, n, col=1, showZeros=FALSE, pch=20, scale=1., lwd=2) {
   # ci = binconf(n, sum(n), alpha=1-pchisq(1^2,1), "wilson")
   # ci = BinomCI(n, sum(n), conf.level = pchisq(1^2,1), method = "wilson")
-  ci = sapply(n, function(x) { binom.test(x, sum(n), pchisq(1^2,1))$conf.int*sum(n) }) # clopper-pearson
+  ci = scale*sapply(n, function(x) { binom.test(x, sum(n), pchisq(1^2,1))$conf.int*sum(n) }) # clopper-pearson
   arrows(
     x0=binCenters[showZeros | n>0],
     y0=pmax(ci[1,],1e-11)[showZeros | n>0],
@@ -372,11 +404,12 @@ histWithBinomErrorBars = function(binCenters, n, col=1, showZeros=FALSE, pch=20)
     length=0.,
     code=3,
     angle=90,
-    col=col
+    col=col,
+    lwd=lwd
   )
   hollowCircle = 1
   solidCircle = 20
-  points(binCenters, n, col=col, pch=pch)
+  points(binCenters, n*scale, col=col, pch=pch)
 }
 histWithErrorBands = function(bins, w, w2, col=1, border=1) {
   # bins will have one more entry than w and w2
@@ -399,6 +432,7 @@ for (withMixture in c(FALSE, TRUE)) {
   }
   
   histWithBinomErrorBars(Dchi2.hist.bins.centers, Dchi2.hist.std, col=1, showZeros=TRUE)
+  histWithBinomErrorBars(Dchi2.hist.bins.centers, gt.Dchi2.hist.std, col=1, showZeros=TRUE, lwd=4, pch=NA, scale=Ntoys.per.true/gt.Ntoys)
   histWithBinomErrorBars(Dchi2.hist.bins.centers, Dchi2.hist.mixt.unweighted, col=4, showZeros=TRUE, pch=18)
   
   # histWithoutErrorBars(Dchi2.hist.bins, Dchi2.hist.mixt, col=2)
@@ -408,21 +442,25 @@ for (withMixture in c(FALSE, TRUE)) {
   # lines(Dchi2.hist.bins.centers, Dchi2.hist.mixt+Dchi2.hist.mixt.se, type='s', col=5)
   # lines(Dchi2.hist.bins.centers, Dchi2.hist.mixt-Dchi2.hist.mixt.se, type='s', col=5)
   
-  histWithoutErrorBars(Dchi2.hist.bins, Dchi2.hist.mixt.nonneg * (C.plot + exp(+0.5*Dchi2.hist.bins.centers-0.5*epsilon.plot)), col=3, lty=2)
+  histWithoutErrorBars(Dchi2.hist.bins, Dchi2.hist.mixt.nonneg * exp(+0.5*Dchi2.hist.bins.centers-0.5*epsilon.plot), col=3, lty=2)
   # histWithoutErrorBars(Dchi2.hist.bins, Dchi2.hist.std.nonneg, col=1)
   # histWithoutErrorBars(Dchi2.hist.bins, Dchi2.hist.mixt.unweighted.nonneg, col=4)
   
-  leg.items = c('Conventional FC','Weighted mixture','Unweighted mixture','Theoretical lower limit')
-  leg.col = c(1,2,4,3)
-  leg.pch = c(20,NA,18,NA)
-  leg.lty = c(1,1,1,2)
+  leg.items = c('Conventional FC',sprintf('Conv. FC (%.0fx, scaled)', gt.Ntoys/Ntoys.per.true),'Weighted mixture','Unweighted mixture','Theoretical lower limit')
+  leg.col = c(1,1,2,4,3)
+  leg.pch = c(20,NA,NA,18,NA)
+  leg.lty = c(1,1,1,1,2)
+  leg.lwd = c(2,4,2,2,2)
   if (!withMixture) {
-    leg.items = leg.items[-2]
-    leg.col = leg.col[-2]
+    leg.items = leg.items[-3]
+    leg.col = leg.col[-3]
+    leg.pch = leg.pch[-3]
+    leg.lty = leg.lty[-3]
+    leg.lwd = leg.lwd[-3]
   }
   # legend('bottomleft', leg.items,lty=leg.lty,pch=leg.pch,col=leg.col,bg="white")
-  legend('bottomleft', leg.items,lty=leg.lty,col=leg.col,bg="white")
-  legend('bottomleft', c("","","",""),pch=leg.pch,col=leg.col,bty='n',inset=c(0.04,0.))
+  legend('bottomleft', leg.items,lty=leg.lty,col=leg.col,lwd=leg.lwd,bg="white")
+  legend('bottomleft', rep("",length(leg.items)),pch=leg.pch,col=leg.col,bty='n',inset=c(0.04,0.))
   dev.off()
 }
 
@@ -434,8 +472,8 @@ Pmax = rev(Pmixt)[1] # technically not exact but should do
 
 y.plot = Dchi2.hist.bins.centers
 ymax.plot = pmax(y.plot,Dchi2max.plot)
-A.plot = 1/(C.plot + exp(0.5*(y.plot - epsilon.plot)))
-B.plot = 1/(C.plot+1) - A.plot
+A.plot = 1/exp(0.5*(y.plot - epsilon.plot))
+B.plot = 1. - A.plot
 S.plot = Ntrue
 gamma.plot = (A.plot + B.plot*Pmax/Pmixt - 1/S.plot*Pmixt) / (1 - Pmixt)
 
@@ -556,7 +594,7 @@ dev.off()
 
 # Plot upper bound on gamma
 
-setwd(sprintf("../20230320-02-generic"))
+setwd(sprintf("../20240319-02-generic"))
 
 customPDF = function(file) {
   pdf(file=file, 5, 5, family="serif")
@@ -571,10 +609,9 @@ k = 1
 P = 1.-pchisq(y,k)
 Pmax = 1.-pchisq(ymax,k)
 
-C = 1
 epsilon = 1
-A = 1/(C + exp(0.5*(y - epsilon)))
-B = 1/(C+1) - A
+A = 1/exp(0.5*(y - epsilon))
+B = 1 - A
 S = 10
 gamma = (A + B*Pmax/P - 1/S*P) / (1 - P)
 plot(y, A/(1-P), 'l', log='y', col=2, lty=2, ylab=expression('Upper bound on '*gamma),
