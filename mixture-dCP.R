@@ -480,21 +480,37 @@ for (withMixture in c(FALSE, TRUE)) {
   dev.off()
 }
 
-# scaled so we can see the error bars
+# scaled so we can see consistency within the error bars
+# we choose as reference the Gaussian best-fit among the 1000x convFC (better at low Dchi2) and mixture result (better at high Dchi2)
 ref.hist.a1 = Dchi2.hist.mixt.nonneg
 ref.hist.a2 = gt.Dchi2.hist.std * (Ntoys.per.true/gt.Ntoys)
 ref.hist.w1 = 1./Dchi2.hist.mixt.w2.nonneg
 ref.hist.w2 = 1./(gt.Dchi2.hist.std+1.) / (Ntoys.per.true/gt.Ntoys)**2
 ref.hist = (ref.hist.a1*ref.hist.w1 + ref.hist.a2*ref.hist.w2) / (ref.hist.w1 + ref.hist.w2)
 
-plot( Dchi2.hist.bins, pmax(Dchi2.hist.bins,1e-11), type='n', col=2, xaxs='i', ylim=c(0., 2.), ylab='Number of pseudo-experiments / mixture', xlab=expression(Delta*chi[t]^2), xlim=c(0,25))
+plot( Dchi2.hist.bins, pmax(Dchi2.hist.bins,1e-11), type='n', col=2, xaxs='i', ylim=c(0.9, 1.1), ylab='Number of pseudo-experiments / reference', xlab=expression(Delta*chi[t]^2), xlim=c(0,25))
 for (iprob in 1:Nprob) {
   abline(v=Dchi2c.mixt[iprob,ifit.trgt], col='gray', lty=2)
 }
-histWithBinomErrorBars(Dchi2.hist.bins.centers, Dchi2.hist.std, col=1, showZeros=TRUE, scale=1./ref.hist)
+# histWithBinomErrorBars(Dchi2.hist.bins.centers, Dchi2.hist.std, col=1, showZeros=TRUE, scale=1./ref.hist)
 histWithBinomErrorBars(Dchi2.hist.bins.centers, gt.Dchi2.hist.std, col=1, showZeros=TRUE, lwd=4, lend="butt", pch=NA, scale=Ntoys.per.true/gt.Ntoys/ref.hist)
 histWithErrorBands(Dchi2.hist.bins, Dchi2.hist.mixt.nonneg/ref.hist, Dchi2.hist.mixt.w2.nonneg/ref.hist/ref.hist, col=rgb(1,0,0,0.5), border=2)
 
+
+# chi2 for agreement.
+# difference between the two estimates
+# and normalize by the error on this difference
+# assuming Gaussianity.
+
+ref.s = gt.Ntoys/Ntoys.per.true
+ref.chi2consistency = (ref.hist.a1 - ref.hist.a2)**2 / (Dchi2.hist.mixt.w2.nonneg + gt.Dchi2.hist.std/ref.s**2)
+# cut at 20 so we are not affected by zero toys for conv FC
+sum(ref.chi2consistency[Dchi2.hist.bins <= 20.])
+# 65.12502
+sum(Dchi2.hist.bins <= 20.)
+# 62
+1. - pchisq(sum(ref.chi2consistency[Dchi2.hist.bins <= 20.]), sum(Dchi2.hist.bins <= 20.))
+# 0.3685405
 
 
 # plot of estimated errors on critical values
